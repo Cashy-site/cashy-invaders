@@ -24,6 +24,8 @@ Opening `index.html` by double-clicking mostly works too, but a local server is 
 | Throw cash | Space, ↑ or W (hold to keep throwing) | Throw cash button |
 | Pause | P or Esc | auto-pauses if you switch away |
 | Sound on/off | M | speaker button, top right |
+| Menu (title and game over) | ↑ ↓ or W S to choose, Space or Enter to pick | tap Check records, or tap anywhere else to play |
+| Leave the Records screen | Esc, Space or Enter | tap |
 
 ## How it plays
 
@@ -34,7 +36,8 @@ Opening `index.html` by double-clicking mostly works too, but a local server is 
 - The **MSTR saucer** now and then crosses the top. Hit it for 50 to 300.
 - An extra life every 2,500 points, up to 5.
 - Each new wave starts lower and moves faster.
-- Best score is saved in the browser (localStorage). Nothing is sent anywhere.
+- **Check records** (on the title and game over screens) shows your best five runs: score, wave reached, coins hit, and when. The run you just finished is highlighted.
+- Records and the best score are saved in the browser (localStorage), so they belong to one browser on one device. Nothing is sent anywhere.
 
 ## Files
 
@@ -52,11 +55,11 @@ The numbers at the top of `game.js` (lives, speeds, cooldown, wave layout) are a
 
 ## Testing hook
 
-Add `?debug` to the URL and `window.__invaders` exposes the game state to the browser console. Leave it off for normal play.
+Add `?debug` to the URL and `window.__invaders` exposes the game state (and `startGame`, `gameOver`) to the browser console. Leave it off for normal play.
 
 ## Putting it on the Arcade
 
-The game runs on its own, the same way Cashy Tower does. Once this repo is on GitHub with Pages switched on, the site embeds it by URL in an iframe. The game area is 706 × 720, the same shape as Cashy Tower's frame.
+The game runs on its own, the same way Cashy Tower does. It is published with GitHub Pages straight from `main` (no build), and the Cashy site embeds it by URL in an iframe: https://ivantornado.github.io/cashy-invaders/ The game area is 706 × 720, the same shape as Cashy Tower's frame.
 
 ## Rules this game follows
 

@@ -71,6 +71,21 @@
     },
   };
 
+  // Best five runs, saved on this device only. Score first, newest first on a tie.
+  const RECORDS_KEPT = 5;
+  function loadRecords() {
+    let saved;
+    try {
+      saved = JSON.parse(store.get("cashy-invaders-records", "[]"));
+    } catch {
+      saved = [];
+    }
+    if (!Array.isArray(saved)) return [];
+    return saved
+      .map((r) => ({ score: Number(r && r.score) || 0, wave: Number(r && r.wave) || 1, kills: Number(r && r.kills) || 0, t: Number(r && r.t) || 0 }))
+      .slice(0, RECORDS_KEPT);
+  }
+
   // ───────────────────────── images ─────────────────────────
   const img = {};
   function loadImage(name, src) {
@@ -231,7 +246,7 @@
 
   // ───────────────────────── game state ─────────────────────────
   const G = {
-    state: "title", // title | play | pause | over
+    state: "title", // title | play | pause | over | records
     t: 0,
     score: 0,
     best: Number(store.get("cashy-invaders-best", "0")) || 0,
@@ -245,6 +260,11 @@
     shake: 0,
     overT: 0,
     overReason: "",
+    menu: 0, // 0 = play, 1 = check records
+    back: "title", // where the Records screen returns to
+    kills: 0, // rival coins hit this run
+    records: loadRecords(),
+    lastRunT: 0, // when the run that just ended finished, so Records can highlight it
   };
 
   const player = { x: W / 2, cool: 0, throwT: 0, invuln: 0, buffer: 0 };
@@ -354,6 +374,8 @@
 
   function startGame() {
     G.score = 0;
+    G.kills = 0;
+    G.menu = 0;
     G.newBest = false;
     G.lives = START_LIVES;
     G.wave = 1;
@@ -383,6 +405,12 @@
       G.newBest = true;
       store.set("cashy-invaders-best", G.best);
     }
+    G.menu = 0;
+    if (G.score > 0) {
+      G.lastRunT = Date.now();
+      G.records = [...G.records, { score: G.score, wave: G.wave, kills: G.kills, t: G.lastRunT }].sort((a, b) => b.score - a.score || b.t - a.t).slice(0, RECORDS_KEPT);
+      store.set("cashy-invaders-records", JSON.stringify(G.records));
+    }
     sfx.over();
   }
 
@@ -394,14 +422,23 @@
   function primary() {
     // Space / Enter / tap
     audio();
-    if (G.state === "title") startGame();
-    else if (G.state === "over" && G.overT > 0.8) startGame();
-    else if (G.state === "pause") G.state = "play";
+    if (G.state === "records") G.state = G.back;
+    else if (G.state === "title" || (G.state === "over" && G.overT > 0.8)) {
+      if (G.menu === 1) {
+        G.back = G.state;
+        G.state = "records";
+      } else startGame();
+    } else if (G.state === "pause") G.state = "play";
   }
   function togglePause() {
     if (G.state === "play") G.state = "pause";
     else if (G.state === "pause") G.state = "play";
+    else if (G.state === "records") G.state = G.back;
   }
+
+  // The two buttons on the title and game over screens. Their rows on the canvas, for taps.
+  const MENU_ROWS = { title: [652, 680], over: [556, 590] };
+  const menuLabels = () => [G.state === "over" ? "PLAY AGAIN" : "PLAY", "CHECK RECORDS"];
 
   window.addEventListener("keydown", (e) => {
     if (e.metaKey || e.ctrlKey || e.altKey) return;
@@ -412,6 +449,11 @@
     if (!fresh) return;
     // Buffer a throw only if we're already playing, so starting or unpausing never throws.
     if (G.state === "play" && (k === "space" || k === "arrowup" || k === "w")) player.buffer = 0.14;
+    if ((G.state === "title" || G.state === "over") && ["arrowup", "w", "arrowdown", "s"].includes(k)) {
+      G.menu = 1 - G.menu;
+      audio();
+      return;
+    }
     if (k === "space" || k === "enter") primary();
     else if (k === "p" || k === "escape") togglePause();
     else if (k === "m") toggleMute();
@@ -435,9 +477,15 @@
     }
   });
 
-  canvas.addEventListener("pointerdown", () => {
+  canvas.addEventListener("pointerdown", (e) => {
     audio();
-    if (G.state === "title" || G.state === "over" || G.state === "pause") primary();
+    if (G.state === "title" || G.state === "over") {
+      // Tapping the Records button opens it; tapping anywhere else plays, as before.
+      const rect = canvas.getBoundingClientRect();
+      const y = ((e.clientY - rect.top) * H) / rect.height;
+      G.menu = Math.abs(y - MENU_ROWS[G.state][1]) < 18 ? 1 : 0;
+      primary();
+    } else if (G.state === "pause" || G.state === "records") primary();
   });
 
   document.querySelectorAll("#touch button").forEach((btn) => {
@@ -448,7 +496,10 @@
       touch[key] = true;
       if (key === "fire" && G.state === "play") player.buffer = 0.14;
       btn.classList.add("down");
-      if (G.state !== "play") primary();
+      if (G.state !== "play") {
+        G.menu = 0; // the touch buttons always mean play
+        primary();
+      }
     };
     const up = (e) => {
       e.preventDefault();
@@ -648,6 +699,7 @@
           e.alive = false;
           b.dead = true;
           addScore(e.points);
+          G.kills++;
           burst(e.x, e.y, e.type === 0 ? COL.paper : e.type === 1 ? COL.cyan : COL.blueLit);
           sfx.pop();
           break;
@@ -988,10 +1040,52 @@
       const bob = reduceMotion ? 0 : Math.sin(G.t * 2) * 4;
       ctx.drawImage(img.cashy, W / 2 - w / 2, 268 + bob, w, h);
     }
-    text("Throw cash at the rival coins.", W / 2, 626, { size: 20, weight: 700, align: "center" });
-    const blink = reduceMotion || Math.floor(G.t * 2) % 2 === 0;
-    text("PRESS SPACE OR TAP TO START", W / 2, 662, { size: 16, weight: 700, color: blink ? COL.cyan : COL.mist, align: "center" });
-    text("← → or A D to move  ·  Space to throw  ·  P to pause", W / 2, 690, { size: 13, color: COL.mist, align: "center" });
+    text("Throw cash at the rival coins.", W / 2, 622, { size: 18, weight: 700, align: "center" });
+    drawMenu(MENU_ROWS.title);
+    text("← → or A D move  ·  Space throw  ·  ↑ ↓ menu  ·  P pause", W / 2, 708, { size: 12, color: COL.mist, align: "center" });
+  }
+
+  function drawMenu(rows) {
+    menuLabels().forEach((label, i) => {
+      const chosen = i === G.menu;
+      text(chosen ? "›  " + label + "  ‹" : label, W / 2, rows[i], { size: 17, weight: 700, color: chosen ? COL.cyan : COL.mist, align: "center", glow: chosen ? COL.cyan : undefined, blur: 12 });
+    });
+  }
+
+  function recordsScreen() {
+    overlay(0.86);
+    text("RECORDS", W / 2, 112, { size: 76, font: HEAD, align: "center", stroke: COL.ink, strokeW: 12, glow: COL.blue, blur: 26 });
+    text("Your best five runs, saved on this device", W / 2, 152, { size: 15, color: COL.mist, align: "center" });
+    const cols = { rank: 72, score: 118, wave: 290, kills: 380, when: 480 };
+    const head = { size: 11, weight: 700, color: COL.mist };
+    text("#", cols.rank, 200, head);
+    text("SCORE", cols.score, 200, head);
+    text("WAVE", cols.wave, 200, head);
+    text("COINS", cols.kills, 200, head);
+    text("WHEN", cols.when, 200, head);
+    if (G.records.length === 0) text("No runs yet. Go throw some cash.", W / 2, 306, { size: 18, color: COL.mist, align: "center" });
+    G.records.forEach((r, i) => {
+      const y = 236 + i * 58;
+      const latest = r.t === G.lastRunT && r.t !== 0;
+      ctx.save();
+      ctx.fillStyle = latest ? "rgba(39,231,255,0.14)" : "rgba(255,255,255,0.06)";
+      ctx.strokeStyle = latest ? COL.cyan : "rgba(255,255,255,0.1)";
+      ctx.lineWidth = latest ? 2 : 1;
+      ctx.beginPath();
+      if (ctx.roundRect) ctx.roundRect(44, y - 24, W - 88, 48, 12);
+      else ctx.rect(44, y - 24, W - 88, 48);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+      const num = { size: 20, weight: 700, base: "middle", color: COL.paper };
+      text(String(i + 1), cols.rank, y, { ...num, color: latest ? COL.cyan : COL.mist });
+      text(r.score.toLocaleString("en-GB"), cols.score, y, num);
+      text(String(r.wave), cols.wave, y, num);
+      text(String(r.kills), cols.kills, y, num);
+      const when = r.t ? new Date(r.t).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "Earlier";
+      text(when, cols.when, y, { size: 14, base: "middle", color: COL.mist });
+    });
+    text("ESC, SPACE OR TAP TO GO BACK", W / 2, 640, { size: 13, weight: 700, color: COL.cyan, align: "center" });
   }
 
   function pauseScreen() {
@@ -1009,8 +1103,8 @@
     text(G.newBest ? "NEW BEST!" : "BEST " + G.best, W / 2, 458, { size: 18, weight: 700, color: G.newBest ? COL.cyan : COL.mist, align: "center" });
     text("Reached wave " + G.wave, W / 2, 486, { size: 16, color: COL.mist, align: "center" });
     if (G.overT > 0.8) {
-      const blink = reduceMotion || Math.floor(G.t * 2) % 2 === 0;
-      text("PRESS SPACE OR TAP TO PLAY AGAIN", W / 2, 560, { size: 16, weight: 700, color: blink ? COL.cyan : COL.mist, align: "center" });
+      drawMenu(MENU_ROWS.over);
+      text("↑ ↓ to choose  ·  Space to pick  ·  or tap", W / 2, 626, { size: 12, color: COL.mist, align: "center" });
     }
   }
 
@@ -1047,7 +1141,8 @@
     for (const e of enemies) if (e.alive) drawCoin(e, fleet.frame, player.x);
     for (const b of bolts) drawBolt(b);
     for (const b of cash) drawBill(b.x, b.y, b.rot, 1.25);
-    if (G.state !== "title" && !(G.state === "over" && G.lives <= 0)) drawPlayer();
+    const fromOver = G.state === "over" || (G.state === "records" && G.back === "over");
+    if (G.state === "play" || G.state === "pause" || (fromOver && G.lives > 0)) drawPlayer();
 
     for (const p of particles) {
       ctx.save();
@@ -1075,11 +1170,12 @@
     ctx.restore();
     ctx.restore();
 
-    if (G.state !== "title") drawHud();
+    if (G.state !== "title" && !(G.state === "records" && G.back === "title")) drawHud();
     banners();
     if (G.state === "title") titleScreen();
     else if (G.state === "pause") pauseScreen();
     else if (G.state === "over") overScreen();
+    else if (G.state === "records") recordsScreen();
   }
 
   // ───────────────────────── boot ─────────────────────────
@@ -1094,7 +1190,7 @@
 
   // A tiny hook for testing, only when the URL has ?debug
   if (/[?&]debug\b/.test(window.location.search)) {
-    window.__invaders = { G, player, get enemies() { return enemies; }, get cash() { return cash; }, get bolts() { return bolts; }, get shields() { return shields; }, ufo, startGame, hurtPlayer };
+    window.__invaders = { G, player, get enemies() { return enemies; }, get cash() { return cash; }, get bolts() { return bolts; }, get shields() { return shields; }, ufo, startGame, hurtPlayer, gameOver };
   }
 
   spawnWave(); // so the title screen has a backdrop
