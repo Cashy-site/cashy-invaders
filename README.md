@@ -33,7 +33,7 @@ Opening `index.html` by double-clicking mostly works too, but a local server is 
 - Cashy can have 3 bills in the air at once. Coins in the top row are worth 30, the middle two rows 20, the bottom two 10.
 - The rival coins fire bolts back. Three hits and it's over, and so is letting them reach the street.
 - The four blue bunkers crumble from both sides. They rebuild each wave.
-- The **MSTR saucer** now and then crosses the top. Hit it for 50 to 300.
+- The **NVDA saucer** now and then crosses the top. Hit it for 50 to 300.
 - An extra life every 2,500 points, up to 5.
 - Each new wave starts lower and moves faster.
 - **Check records** (on the title and game over screens) shows your best five runs: score, wave reached, coins hit, and when. The run you just finished is highlighted.

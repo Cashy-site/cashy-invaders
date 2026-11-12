@@ -756,7 +756,7 @@
     }
     bolts = bolts.filter((b) => !b.dead);
 
-    // Bonus MSTR saucer
+    // Bonus NVDA saucer
     if (ufo.active) {
       ufo.x += ufo.dir * 130 * dt;
       if (ufo.x < -50 || ufo.x > W + 50) {
@@ -979,7 +979,7 @@
     ctx.font = `700 10px ${BODY}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("MSTR", 0, 3);
+    ctx.fillText("NVDA", 0, 3);
     // blinking lights
     for (let i = -1; i <= 1; i += 2) {
       ctx.fillStyle = Math.floor(G.t * 6) % 2 === (i > 0 ? 0 : 1) ? COL.cyan : COL.blue;
