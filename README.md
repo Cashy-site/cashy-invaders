@@ -59,7 +59,7 @@ Add `?debug` to the URL and `window.__invaders` exposes the game state (and `sta
 
 ## Putting it on the Arcade
 
-The game runs on its own, the same way Cashy Tower does. It is published with GitHub Pages straight from `main` (no build), and the Cashy site embeds it by URL in an iframe: https://ivantornado.github.io/cashy-invaders/ The game area is 706 × 720, the same shape as Cashy Tower's frame.
+The game runs on its own at https://invaders.cashy.world/ (Cloudflare Pages, straight from `main`, no build), and the Cashy site embeds it by URL in an iframe. The game area is 706 × 720, the same shape as Cashy Tower's frame.
 
 ## Rules this game follows
 
