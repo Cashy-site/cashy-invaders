@@ -394,6 +394,8 @@
     spawnWave();
     G.state = "play";
     sfx.start();
+    runNumber++;
+    if (window.CashyLB) window.CashyLB.start("invaders");
   }
 
   function gameOver(reason) {
@@ -412,6 +414,24 @@
       store.set("cashy-invaders-records", JSON.stringify(G.records));
     }
     sfx.over();
+    submitRun();
+  }
+
+  // ───────────────────────── leaderboard ─────────────────────────
+  // Optional: https://api.cashy.world/client.js may be missing, and the game never waits on it.
+  let runNumber = 0;
+  function submitRun() {
+    const lb = window.CashyLB;
+    if (!lb) return;
+    const run = runNumber;
+    const shareText = (tag) => {
+      const tagText = tag ? ` (run #${tag})` : "";
+      return `I scored ${G.score.toLocaleString("en-GB")} in Cashy Invaders 👾${tagText}\n\nBuilt on @base 🔵\nCash in. NVDA out. @feeldotcash\n\nhttps://cashy.world/arcade/cashy-invaders/`;
+    };
+    lb.finish("invaders", { score: G.score, wave: G.wave, kills: G.kills }).then((result) => {
+      if (run !== runNumber || G.state === "play") return;
+      lb.show(result, { game: "invaders", share: shareText, label: { wave: "wave" } });
+    });
   }
 
   // ───────────────────────── input ─────────────────────────
